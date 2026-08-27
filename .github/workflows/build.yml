@@ -1,0 +1,43 @@
+name: Build binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: godot-anim-generator-linux
+          - os: windows-latest
+            artifact_name: godot-anim-generator-windows.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build with PyInstaller
+        run: pyinstaller godot-anim-generator.spec
+
+      - name: Rename output (Linux)
+        if: runner.os == 'Linux'
+        run: mv dist/godot-anim-generator dist/${{ matrix.artifact_name }}
+
+      - name: Rename output (Windows)
+        if: runner.os == 'Windows'
+        run: mv dist/godot-anim-generator.exe dist/${{ matrix.artifact_name }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.artifact_name }}
