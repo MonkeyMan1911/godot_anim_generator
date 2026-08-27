@@ -29,15 +29,27 @@ jobs:
       - name: Build with PyInstaller
         run: pyinstaller godot-anim-generator.spec
 
-      - name: Rename output (Linux)
+      - name: Package Linux artifact (binary + icon + installer)
         if: runner.os == 'Linux'
-        run: mv dist/godot-anim-generator dist/${{ matrix.artifact_name }}
+        run: |
+          mkdir -p package
+          cp dist/godot-anim-generator package/
+          cp icon_256.png package/
+          cp install-linux.sh package/
+          chmod +x package/godot-anim-generator package/install-linux.sh
 
       - name: Rename output (Windows)
         if: runner.os == 'Windows'
         run: mv dist/godot-anim-generator.exe dist/${{ matrix.artifact_name }}
 
       - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: package/
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
         with:
           name: ${{ matrix.artifact_name }}
           path: dist/${{ matrix.artifact_name }}

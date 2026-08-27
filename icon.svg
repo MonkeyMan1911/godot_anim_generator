@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a5a9c"/>
+      <stop offset="100%" stop-color="#1f2c4d"/>
+    </linearGradient>
+    <linearGradient id="cell" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2a3a63"/>
+      <stop offset="100%" stop-color="#20304f"/>
+    </linearGradient>
+  </defs>
+
+  <!-- background -->
+  <rect x="0" y="0" width="256" height="256" rx="48" fill="url(#bg)"/>
+
+  <!-- 2x2 sprite-sheet grid -->
+  <g stroke="#8fb8ff" stroke-width="3" stroke-opacity="0.55">
+    <rect x="40" y="40" width="80" height="80" rx="10" fill="url(#cell)"/>
+    <rect x="136" y="40" width="80" height="80" rx="10" fill="url(#cell)"/>
+    <rect x="40" y="136" width="80" height="80" rx="10" fill="url(#cell)"/>
+    <rect x="136" y="136" width="80" height="80" rx="10" fill="url(#cell)"/>
+  </g>
+
+  <!-- walk-cycle stick figure, 4 poses -->
+  <g stroke="#eaf2ff" stroke-width="6" stroke-linecap="round" fill="none">
+    <!-- frame 1: neutral stand -->
+    <g transform="translate(80,80)">
+      <circle cx="0" cy="-24" r="9" fill="#eaf2ff" stroke="none"/>
+      <line x1="0" y1="-15" x2="0" y2="12"/>
+      <line x1="0" y1="-2" x2="-14" y2="10"/>
+      <line x1="0" y1="-2" x2="14" y2="10"/>
+      <line x1="0" y1="12" x2="-10" y2="30"/>
+      <line x1="0" y1="12" x2="10" y2="30"/>
+    </g>
+    <!-- frame 2: mid-stride -->
+    <g transform="translate(176,80)">
+      <circle cx="0" cy="-24" r="9" fill="#eaf2ff" stroke="none"/>
+      <line x1="0" y1="-15" x2="2" y2="10"/>
+      <line x1="2" y1="-4" x2="-16" y2="-14"/>
+      <line x1="2" y1="-4" x2="18" y2="6"/>
+      <line x1="2" y1="10" x2="-14" y2="26"/>
+      <line x1="2" y1="10" x2="18" y2="30"/>
+    </g>
+    <!-- frame 3: neutral stand (mirrored feel) -->
+    <g transform="translate(80,176)">
+      <circle cx="0" cy="-24" r="9" fill="#eaf2ff" stroke="none"/>
+      <line x1="0" y1="-15" x2="0" y2="12"/>
+      <line x1="0" y1="-2" x2="14" y2="10"/>
+      <line x1="0" y1="-2" x2="-14" y2="10"/>
+      <line x1="0" y1="12" x2="10" y2="30"/>
+      <line x1="0" y1="12" x2="-10" y2="30"/>
+    </g>
+    <!-- frame 4: opposite stride -->
+    <g transform="translate(176,176)">
+      <circle cx="0" cy="-24" r="9" fill="#eaf2ff" stroke="none"/>
+      <line x1="0" y1="-15" x2="-2" y2="10"/>
+      <line x1="-2" y1="-4" x2="16" y2="-14"/>
+      <line x1="-2" y1="-4" x2="-18" y2="6"/>
+      <line x1="-2" y1="10" x2="14" y2="26"/>
+      <line x1="-2" y1="10" x2="-18" y2="30"/>
+    </g>
+  </g>
+
+  <!-- play badge, bottom-right, signaling "this plays as an animation" -->
+  <g>
+    <circle cx="206" cy="206" r="34" fill="#ffb454"/>
+    <path d="M197 190 L222 206 L197 222 Z" fill="#1f2c4d"/>
+  </g>
+</svg>
