@@ -4,7 +4,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIN_SRC="$SCRIPT_DIR/dist/godot-anim-generator"
+BIN_SRC="$SCRIPT_DIR/godot-anim-generator"
 ICON_SRC="$SCRIPT_DIR/icon_256.png"
 
 BIN_DEST_DIR="$HOME/.local/bin"
