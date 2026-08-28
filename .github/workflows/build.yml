@@ -13,9 +13,12 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: godot-anim-generator-linux
+
           - os: windows-latest
-            artifact_name: godot-anim-generator-windows.exe
+            artifact_name: godot-anim-generator-windows
+
     runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -29,27 +32,54 @@ jobs:
       - name: Build with PyInstaller
         run: pyinstaller godot-anim-generator.spec
 
-      - name: Package Linux artifact (binary + icon + installer)
+      # =========================
+      # LINUX
+      # =========================
+
+      - name: Package Linux artifact
         if: runner.os == 'Linux'
         run: |
           mkdir -p package
+
           cp dist/godot-anim-generator package/
           cp icon_256.png package/
           cp install-linux.sh package/
-          chmod +x package/godot-anim-generator package/install-linux.sh
 
-      - name: Rename output (Windows)
-        if: runner.os == 'Windows'
-        run: mv dist/godot-anim-generator.exe dist/${{ matrix.artifact_name }}
+          chmod +x package/godot-anim-generator
+          chmod +x package/install-linux.sh
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Linux artifact
         if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: package/
 
-      - uses: actions/upload-artifact@v4
+      # =========================
+      # WINDOWS
+      # =========================
+
+      - name: Get version from Git tag
         if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Building Godot Anim Generator version $VERSION"
+
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        run: |
+          choco install innosetup -y
+
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        run: |
+          iscc /DMyAppVersion=${{ env.VERSION }} installer/windows.iss
+
+      - name: Upload Windows installer
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: dist/${{ matrix.artifact_name }}
+          path: installer-output/Godot-Anim-Generator-Setup.exe
