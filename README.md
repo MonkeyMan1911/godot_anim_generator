@@ -482,10 +482,6 @@ godot-anim-generator/
 
 ## License
 
-Add your preferred license here.
-
-For example:
-
 ```text
 MIT License
 ```
