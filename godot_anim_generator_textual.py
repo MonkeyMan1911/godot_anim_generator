@@ -14,6 +14,9 @@ Run with:
 
 import math
 import os
+import random
+import re
+import string
 
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -48,30 +51,124 @@ def get_values(row_number, num_frames, height, width, fps):
     return {"values": values, "times": times}
 
 
-def write_library(file_name: str, animation_names: list[str], animation_text: str):
-    with open(file_name, "r") as file:
-        library_start_index = -1
-        library_end_index = -1
-        lines = file.readlines()
-        for i in range(len(lines)):
-            if '[sub_resource type="AnimationLibrary"' in lines[i]:
-                library_start_index = i
-        if library_start_index == -1:
-            raise ValueError('No [sub_resource type="AnimationLibrary" ...] block found in that file')
-        for i in range(library_start_index, len(lines)):
-            if '}' in lines[i]:
-                library_end_index = i
-                break
-        if library_end_index == -1:
-            raise ValueError("Could not find the end of the AnimationLibrary block")
+_ANIMPLAYER_RE = re.compile(r'^\[node name="[^"]*" type="AnimationPlayer"')
 
-    lines.insert(library_start_index, animation_text)
-    if lines[library_end_index][-2] != ',':
-        lines[library_end_index] = lines[library_end_index][0:-1] + ',\n'
-    for animation in animation_names:
-        lines.insert(library_end_index + 1, f'&"{animation}": SubResource("Animation_{animation}"),\n')
+
+def _random_id_suffix(length: int = 5) -> str:
+    return "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
+
+
+def _find_first_node_index(lines: list[str]):
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith("[node "):
+            return i
+    return None
+
+
+def _find_animationplayer_index(lines: list[str]):
+    for i, line in enumerate(lines):
+        if _ANIMPLAYER_RE.match(line.strip()):
+            return i
+    return None
+
+
+def _format_entries(animation_names: list[str]) -> list[str]:
+    """&"name": SubResource("Animation_name") lines, comma-separated, no
+    trailing comma on the last one - matches real Godot _data formatting."""
+    entries = []
+    last = len(animation_names) - 1
+    for i, name in enumerate(animation_names):
+        comma = "," if i != last else ""
+        entries.append(f'&"{name}": SubResource("Animation_{name}"){comma}\n')
+    return entries
+
+
+def write_library(file_name: str, animation_names: list[str], animation_text: str) -> str | None:
+    """Writes the Animation sub_resources into file_name and makes sure they
+    end up in an AnimationLibrary's _data dict.
+
+    - If the file already has a `[sub_resource type="AnimationLibrary" ...]`
+      block (with a `_data = { ... }` dict under it), the new entries are
+      appended into that dict.
+    - If it doesn't (a bare scene straight out of the editor), a brand new
+      AnimationLibrary sub_resource is created and, if an AnimationPlayer
+      node is present, wired up via `libraries/ = SubResource(...)`.
+
+    Returns a warning string if something noteworthy happened (e.g. no
+    AnimationPlayer to link to), or None if everything went cleanly.
+    """
+    with open(file_name, "r") as file:
+        lines = file.readlines()
+
+    library_header_idx = None
+    for i, line in enumerate(lines):
+        if '[sub_resource type="AnimationLibrary"' in line:
+            library_header_idx = i
+            break
+
+    if library_header_idx is not None:
+        # --- Existing AnimationLibrary: append into its _data dict ---
+        data_idx = None
+        for i in range(library_header_idx + 1, min(library_header_idx + 4, len(lines))):
+            if lines[i].strip().startswith("_data"):
+                data_idx = i
+                break
+        if data_idx is None:
+            raise ValueError(
+                'Found a [sub_resource type="AnimationLibrary" ...] block but no '
+                '"_data = {" dict underneath it - the file doesn\'t look like a '
+                "normal Godot scene."
+            )
+
+        close_idx = None
+        for i in range(data_idx + 1, len(lines)):
+            if lines[i].strip() == "}":
+                close_idx = i
+                break
+        if close_idx is None:
+            raise ValueError("Could not find the closing '}' of the AnimationLibrary's _data block")
+
+        # Make sure whatever was previously the last entry now ends with a comma
+        if close_idx > data_idx + 1:
+            prev = lines[close_idx - 1].rstrip("\n")
+            if not prev.rstrip().endswith(","):
+                lines[close_idx - 1] = prev + ",\n"
+
+        lines[close_idx:close_idx] = _format_entries(animation_names)
+        lines.insert(library_header_idx, animation_text)
+
+        with open(file_name, "w") as file:
+            file.writelines(lines)
+        return None
+
+    # --- No AnimationLibrary yet: create one from scratch ---
+    library_id = f"AnimationLibrary_{_random_id_suffix()}"
+    library_block = (
+        f'[sub_resource type="AnimationLibrary" id="{library_id}"]\n'
+        "_data = {\n"
+        + "".join(_format_entries(animation_names))
+        + "}\n\n"
+    )
+
+    insert_idx = _find_first_node_index(lines)
+    if insert_idx is None:
+        insert_idx = len(lines)
+    lines[insert_idx:insert_idx] = [animation_text, library_block]
+
+    player_idx = _find_animationplayer_index(lines)
+    if player_idx is not None:
+        lines.insert(player_idx + 1, f'libraries/ = SubResource("{library_id}")\n')
+
     with open(file_name, "w") as file:
         file.writelines(lines)
+
+    if player_idx is None:
+        return (
+            f'Created a new AnimationLibrary ("{library_id}") but found no '
+            "AnimationPlayer node to link it to. Add one in Godot, then set "
+            f'libraries/ = SubResource("{library_id}") on it manually.'
+        )
+    return None
 
 
 def generate_animation(name, fps, ticks, loop, num_frames, value_time):
@@ -361,11 +458,14 @@ class AnimatorApp(App):
                 raise ValueError("Choose an output file first (Browse...)")
 
             value_time = get_values(row_number, num_frames, height, width, fps)
-            write_library(
+            warning = write_library(
                 file_name, [name],
                 generate_animation(name, fps, ticks, loop, num_frames, value_time),
             )
-            status.update(f"[bold green]Wrote animation '{name}' to {file_name}[/]")
+            if warning:
+                status.update(f"[bold yellow]Wrote animation '{name}' to {file_name}\n{warning}[/]")
+            else:
+                status.update(f"[bold green]Wrote animation '{name}' to {file_name}[/]")
         except Exception as e:
             status.update(f"[bold red]Error: {e}[/]")
 
@@ -399,8 +499,11 @@ class AnimatorApp(App):
                 names.append(f"{anim_type}_{direction.lower()}")
                 row += 1
 
-            write_library(file_name, names, result)
-            status.update(f"[bold green]Wrote animations {', '.join(names)} to {file_name}[/]")
+            warning = write_library(file_name, names, result)
+            if warning:
+                status.update(f"[bold yellow]Wrote animations {', '.join(names)} to {file_name}\n{warning}[/]")
+            else:
+                status.update(f"[bold green]Wrote animations {', '.join(names)} to {file_name}[/]")
         except Exception as e:
             status.update(f"[bold red]Error: {e}[/]")
 
